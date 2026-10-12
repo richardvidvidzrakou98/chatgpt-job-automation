@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project documents how I built a job-search and application workflow in ChatGPT. The system searches for relevant vacancies, assesses each role against my verified experience, prioritizes suitable opportunities, tailors my resume, applies when submission is possible, and records the outcome in a spreadsheet.
+This project documents how I built a job-search and application workflow in ChatGPT. The system searches for relevant vacancies, assesses each role against my verified experience, prioritizes suitable opportunities, tailors my resume, reviews writing quality, and returns complete applications in chat for my approval. Submission happens only after I approve the specific reviewed application; the spreadsheet records each stage.
 
 The workflow is designed for these target areas:
 
@@ -14,7 +14,7 @@ The workflow is designed for these target areas:
 
 The automation prioritizes remote roles that accept applicants from Ghana. It then considers qualified Ghana-based hybrid and office roles.
 
-> Important: this is a human-supervised application system, not a blind mass-application bot. It must use truthful information, respect platform rules, and stop when an application requires a personal decision, account verification, assessment, interview, or information that has not been supplied.
+> Current policy (12 October 2026): scheduled runs prepare applications only. They never send email or submit job-platform applications. Every application must pass the writing-quality review and receive my explicit approval in chat. Earlier blanket permission to submit is revoked.
 
 ## What the System Does
 
@@ -27,32 +27,29 @@ The automation follows this cycle:
 5. Prioritizes high-fit remote roles, followed by Ghana-based hybrid and office roles.
 6. Checks the tracker and submission history to prevent duplicate applications.
 7. Creates a truthful, ATS-friendly resume tailored to the vacancy.
-8. Applies through an accessible form or verified email address when authorized and possible.
-9. Confirms whether the application was actually submitted or delivered.
-10. Updates the application tracker with the result, evidence, blockers, and next action.
-11. Reports the outcome after each scheduled run.
+8. Reviews the complete resume, cover note and form answers against source evidence.
+9. Returns eligibility, CV score, final documents and every proposed answer in chat.
+10. Saves the application as **Awaiting user review**, or **Prepared / Blocked**.
+11. Reports preparation results after each scheduled run; scheduled submissions are always zero.
+12. After my specific approval in a subsequent interaction, rechecks duplicates and the vacancy, submits through available tools, verifies confirmation and updates the tracker.
 
 ## System Workflow
 
 ```mermaid
 flowchart TD
-    A[Scheduled run starts] --> B[Load resumes and tracker]
-    B --> C[Search recent vacancies]
-    C --> D[Validate role and eligibility]
-    D --> E{Already applied?}
-    E -- Yes --> F[Skip and record duplicate]
-    E -- No --> G[Score job fit]
-    G --> H{High enough fit?}
-    H -- No --> I[Exclude or save as low priority]
-    H -- Yes --> J[Tailor resume]
-    J --> K{Submission possible?}
-    K -- Yes --> L[Apply and verify confirmation]
-    K -- No --> M[Record blocker and required action]
-    L --> N[Update spreadsheet]
-    M --> N
-    F --> N
-    I --> N
-    N --> O[Send run summary]
+    A[Search and load history] --> B{Open, eligible and suitable?}
+    B -- No --> C[Record exclusion]
+    B -- Yes --> D{Duplicate?}
+    D -- Yes --> C
+    D -- No --> E[Tailor documents and answers]
+    E --> F{Quality checks pass?}
+    F -- No --> G[Revise or record blocker]
+    G --> E
+    F -- Yes --> H[Save and return final review in chat]
+    H --> I{Specific user approval?}
+    I -- No --> J[Await user review]
+    I -- Yes --> K[Revalidate and submit if accessible]
+    K --> L[Verify confirmation and save outcome]
 ```
 
 ## Components
@@ -126,6 +123,11 @@ The spreadsheet is the source of truth for application history and duplicate pre
 | Missing requirements | Genuine gaps or seniority concerns |
 | Tailored resume | Filename or link to the resume used |
 | Status | Current application state |
+| Application ID | Stable ID used for review and approval |
+| Quality review | Passed, needs revision, or blocked; review date and evidence references |
+| Final application text | Link/version of exact email or complete form-answer draft |
+| Resume version | Exact reviewed or submitted resume version |
+| User approval | Approval timestamp and reference to the specific application/version |
 | Submitted at | Confirmed submission timestamp |
 | Confirmation ID | Email message ID, form receipt, or other evidence |
 | Duplicate key | Normalized company + title + canonical URL |
@@ -139,6 +141,8 @@ Recommended status values:
 - Assessed
 - Qualified
 - Tailored
+- Awaiting user review
+- Approved — pending submission
 - Prepared / Blocked
 - Submission Uncertain
 - Applied
@@ -177,7 +181,7 @@ Location eligibility is evaluated separately from technical fit. A technically s
 
 ## Job-Prioritization Rules
 
-Apply in this order:
+Prepare applications for review in this order:
 
 1. High-fit remote roles explicitly open to Ghana, Africa, EMEA, worldwide, or Sub-Saharan Africa.
 2. High-fit remote roles whose Ghana eligibility is uncertain but not explicitly prohibited.
@@ -235,16 +239,84 @@ Richard-Vidzrakou-Company-Job-Title-Resume.pdf
 
 The automation must never invent technologies, employers, job duties, certifications, education, metrics, or years of experience.
 
+## Safeguards Against AI Drivel
+
+These are mandatory instructions in the automation, not a guarantee that AI text is error-free. The final human review remains necessary. A high CV score measures job fit; it does not prove writing quality, eligibility or successful submission.
+
+### Mandatory Writing-Quality Gate
+
+Review the complete tailored resume, cover note, email and all form answers before returning a ready application and again before an approved submission.
+
+| Check | Required standard |
+|---|---|
+| Truthfulness | Support every skill, achievement, date, qualification, project and metric with the current CV, master resume or a user-confirmed example. Never invent or exaggerate. |
+| Specificity | Connect two or three actual job requirements to concrete, relevant experience. |
+| Natural wording | Use concise, plain language I can comfortably explain in an interview. |
+| Relevance | Remove unrelated experience, generic praise, filler, buzzwords and exaggerated enthusiasm. |
+| ATS terminology | Use supported terms naturally; avoid keyword stuffing and copying job-description language. |
+| Consistency | Keep titles, dates, contact details and experience levels consistent across all materials. |
+| Employer instructions | Answer the exact question and respect word limits. Flag personal/non-AI-written answers for me. |
+| Auditability | Save the exact final text, resume version, evidence references and review outcome in or linked from the tracker. |
+
+Rewrite any material that fails these checks. If missing evidence or my personal judgment prevents completion, record a blocker. Never fill a quota with weak or misleading applications; prepare fewer and report the shortfall.
+
+**Weak wording:** “I am passionate about leveraging cutting-edge technologies to deliver innovative solutions.”
+
+**Concrete wording, when supported by my source evidence:** “I built and deployed an education platform with a central API, separate admin and student portals, Docker containers and Paystack payments.”
+
+Do not invent numbers to force an XYZ bullet. A factual description without a metric is better than an unsupported achievement.
+
+### Mandatory Human Approval Gate
+
+Every scheduled run stops at preparation. It must return a final review in chat containing:
+
+- Stable application ID, employer, exact role and official vacancy/application link.
+- Work arrangement, location, Ghana eligibility and country, residence, work-authorization and timezone constraints, with source evidence and uncertainty.
+- CV match score out of 100, matched requirements and genuine gaps.
+- Exact tailored CV link and version.
+- For email: exact recipient, subject, complete body and attachments.
+- For a platform: every question, proposed answer, selected option, attachment and relevant declaration.
+- Which fields are drafts versus actually filled, unanswered mandatory questions and blockers.
+
+Record **Awaiting user review**, not Applied. Prepare drafts locally if entering a platform would transmit or autosave application data before approval. Never claim a form has been filled unless it actually has.
+
+After reviewing, I can reply **Apply APP-123**, using the application's actual ID, or approve an explicitly named batch. Approval covers the specific role, destination and reviewed documents/answers. Material changes require another review. Silence, notifications and earlier blanket permission do not authorize submission.
+
+A custom clickable Apply button is not guaranteed. The official job link is for reference; clicking it is not approval for ChatGPT to submit. Submission after approval depends on available tools, account access and platform requirements.
+
+### Copy-Ready Safeguard Instruction
+
+```text
+Scheduled runs research and prepare applications only. Never send an application
+email or submit a job-platform form without my explicit approval of the final
+reviewed application in chat. Previous blanket submission permission is revoked.
+
+Review all resumes, emails and form answers against verified source evidence.
+Remove unsupported claims, invented metrics, generic filler, copied JD wording,
+keyword stuffing and exaggerated enthusiasm. Use concrete relevant examples
+and plain language I can defend in an interview. Follow exact questions and
+word limits. Flag answers requiring my judgment or personal/non-AI writing.
+
+Return eligibility evidence and uncertainty, CV score and gaps, the exact CV
+version, and the complete email or question-by-question form draft. Save the
+quality review, evidence references and exact final materials in the tracker
+with status Awaiting user review. Wait for approval of a specific application
+ID. Revalidate eligibility, vacancy and duplicate history before an approved
+submission; mark Applied only after verified confirmation. Quality overrides
+quotas. If review, evidence or durable tracking is incomplete, record a blocker.
+```
+
 ## Application and Verification Process
 
 ### Email Applications
 
-Before sending:
+Before sending, only after my specific approval:
 
 - Verify the recipient using the official vacancy or employer website.
 - Search sent mail for an existing application.
 - Use a role-specific subject and concise cover note.
-- Attach the correct tailored resume.
+- Show the complete email and exact resume in chat before requesting approval.
+- Attach the approved tailored resume.
 - Check that the attachment filename matches the intended role.
 
 After sending:
@@ -256,10 +328,11 @@ After sending:
 
 ### Application Forms
 
-Before submission:
+Before submission, only after my specific approval:
 
 - Confirm the form belongs to the employer or authorized platform.
-- Complete only fields supported by known information.
+- Draft only answers supported by known information and return every question/answer in chat.
+- Fill platform fields only when authorized; use local drafts if the site transmits or autosaves data.
 - Review uploaded files and answers.
 - Stop when a mandatory answer requires a personal preference or unknown fact.
 
@@ -309,7 +382,11 @@ Create a project named **ChatGPT Job Automation**. Keep all job-search conversat
 Use instructions similar to these:
 
 ```text
-Act as my job-search and application assistant.
+Act as my job-search and application assistant. Scheduled runs prepare only.
+Return the final eligibility assessment, score, CV and complete email/form
+answers in chat. Never send or submit until I explicitly approve the specific
+reviewed application ID. Apply the mandatory writing-quality gate documented
+in this README; record evidence, exact versions and Awaiting user review status.
 
 Use only truthful information from my resumes and confirmed profile. Prioritize
 high-fit remote jobs that accept applicants from Ghana, followed by Ghana-based
@@ -381,16 +458,30 @@ Load the latest application tracker before taking action. Check company, title,
 canonical URL, sent email, confirmation IDs, and known reposts so the same role
 is never submitted twice. Do not retry a submission whose status is uncertain.
 
-Assess each role, record its match score and gaps, and apply only when the fit is
-strong enough and the listing is open. Tailor the resume truthfully. Never
+Assess each role, record its match score and gaps, and prepare only when the fit
+is strong enough and the listing is open. Target 5–10 quality preparations per
+run; do not pad the target. Tailor the resume truthfully. Never
 invent skills, metrics, dates, or answers. Pause when personal input, login,
 OTP, CAPTCHA, legal agreement, assessment, interview, salary, availability,
 relocation, or work-authorization information is required.
 
+Apply the mandatory writing-quality gate: verify every claim, remove generic
+filler and exaggeration, use concrete examples and natural wording, check
+consistency and follow employer instructions. Flag personal/non-AI answers.
+
+Do not send emails or submit forms during scheduled runs. Return final reviews
+in chat with stable IDs, eligibility evidence, CV score/gaps, exact resume
+versions, complete email drafts or all form questions/answers, and blockers.
+Save final materials and quality-review evidence. Mark Awaiting user review.
+Wait for my explicit approval of the reviewed application ID before any later
+interactive submission. A custom Apply button is not guaranteed.
+
+After approval, revalidate the vacancy and duplicate history before submitting.
 Mark Applied only after verifiable confirmation. Record failed delivery,
-blocked forms, uncertain submissions, exclusions, and required next actions.
-Update the authoritative spreadsheet after each run and send me a concise
-summary of submitted, blocked, skipped, failed, and interview-stage roles.
+blocked forms, uncertain submissions, exclusions and required next actions.
+Update the authoritative spreadsheet after each run and report prepared,
+awaiting-review, blocked, skipped and interview-stage roles. Scheduled runs
+must submit zero applications. Quality takes priority over quantity.
 ```
 
 ### Step 7: Verify the Schedule
@@ -425,13 +516,15 @@ Each run should report:
 ```text
 Run date/time:
 Roles reviewed:
-New applications submitted:
+Scheduled submissions: 0
+Prepared / awaiting user review:
+Quality-review outcomes:
 Prepared/blocked:
 Skipped as duplicates:
 Skipped as ineligible:
 Delivery failures:
 Interviews or assessments found:
-Application target shortfall:
+Preparation target shortfall:
 Tracker updated:
 Actions required from me:
 ```
@@ -487,9 +580,11 @@ The completed system is a supervised job-application pipeline that combines:
 - Evidence-based match scoring
 - ATS-aware resume tailoring
 - Duplicate prevention
-- Controlled application submission
+- Mandatory writing-quality and source-evidence review
+- Explicit approval of each final application
+- Controlled submission after approval
 - Confirmation and delivery tracking
 - Spreadsheet-based application management
 - Scheduled reporting and follow-up
 
-Its purpose is not to apply everywhere. Its purpose is to consistently find and submit truthful, high-quality applications while keeping a reliable record of every decision and outcome.
+The system finds and prepares relevant, evidence-based applications, gives me the final review, and submits only after my specific approval. It keeps a traceable record of quality checks, decisions and confirmed outcomes.
